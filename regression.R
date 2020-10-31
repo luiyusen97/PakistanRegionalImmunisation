@@ -14,7 +14,8 @@ immunisation <-read_dta(file = "C:\\Users\\Lui Yu Sen\\Documents\\Github project
 # distancetobhu: distance to nearest basic health unit (sgq10_81)
 # education: highest education received (scq04) Remember to only regress for female ppl. At least primary education=1, else 0
 # we are going to regress with regions as the individual unit
-# merge dataframes by hhcode (household code) 
+# for every hhcode, add the idc value to the end, call it hhcode_idc
+# merge dataframes by new edited hhcode_idc (household code with idc)
 # create new column with district code (first 4 digits in hhcode)
 # group_by district code
 # remove non-needed columns, remove NA values
@@ -24,3 +25,10 @@ immunisation <-read_dta(file = "C:\\Users\\Lui Yu Sen\\Documents\\Github project
 # distance to basic health unit (mean distance to nearest basic health unit per region)
 # education: number of females with at least primary education/total number of females in a region
 # regress immunisation on age, distance, education
+# example merge code: merge(distancetobhu, immunisation, by.x = "hhcode", by.y = "hhcode", all = F)
+# in order from longest to smallest: distancetobhu, immunisation, personaldetails, education, income
+
+merge_step1 <- merge(distancetobhu, immunisation, by.x = "hhcode", by.y = "hhcode", all = F)
+merge_step2 <- merge(merge_step1, personaldetails, by.x = "hhcode", by.y = "hhcode", all = F)
+merge_step3 <- merge(merge_step2, education, by.x = "hhcode", by.y = "hhcode", all = F)
+merge_step4 <- merge(merge_step3, income, by.x = "hhcode", by.y = "hhcode", all = F)
