@@ -152,3 +152,7 @@ print(regression_report)
 regionaldata <- mutate(regionaldata, residuals_squared = (regression_report$residuals)**2)
 white_test <- summary(lm(residuals_squared~female_edu + mean_age + age_squared + median_education + median_distance, regionaldata))
 print(white_test)
+
+# shapiro-wilks test for normality of residuals
+print(shapiro.test(regression_report$residuals))
+# it's not normal shit
