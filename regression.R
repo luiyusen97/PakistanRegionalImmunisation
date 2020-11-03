@@ -146,3 +146,4 @@ distance_factors <- c("0-14min", "15-29min", "30-44min", "45-59min", "60+min")
 regionaldata$median_distance <- as.factor(as.integer(regionaldata$median_distance))
 levels(regionaldata$median_distance) <- distance_factors
 regression_report <- summary(lm(immunised_proportion ~ female_edu + mean_age + age_squared + median_education + median_distance, regionaldata))
+print(regression_report)
