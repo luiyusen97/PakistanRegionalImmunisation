@@ -147,3 +147,8 @@ regionaldata$median_distance <- as.factor(as.integer(regionaldata$median_distanc
 levels(regionaldata$median_distance) <- distance_factors
 regression_report <- summary(lm(immunised_proportion ~ female_edu + mean_age + age_squared + median_education + median_distance, regionaldata))
 print(regression_report)
+
+# need to run the heteroscedascity tests
+regionaldata <- mutate(regionaldata, residuals_squared = (regression_report$residuals)**2)
+white_test <- summary(lm(residuals_squared~female_edu + mean_age + age_squared + median_education + median_distance, regionaldata))
+print(white_test)
