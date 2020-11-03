@@ -80,22 +80,21 @@ rm(female_no)
 rm(female_no_primaryedu)
 rm(female_edu_region)
 # individual_adults <- group_by(individual_adults, districtcode)
-# education_levels <- c("Below Class-I", "class I","Class II", "Class III",
-#                       "Class IV",
-#                       "Class V", "Class VI", "Class VII", "Class VIII",
-#                       "Class IX", "Class X", "Polytechnic Diploma",
-#                       "F.A/F.Sci/I.com", "Bachelors", "Masters",
-#                       "Degree in Engineering", "Degree in Medicine",
-#                       "Degree in Agriculture", "Degree in Law",
-#                       "PhD", "Others")
+education_levels <- c("Below Class-I", "class I","Class II", "Class III",
+                      "Class IV",
+                      "Class V", "Class VI", "Class VII", "Class VIII",
+                      "Class IX", "Class X", "Polytechnic Diploma",
+                      "F.A/F.Sci/I.com", "Bachelors", "Masters",
+                      "Degree in Engineering", "Degree in Medicine",
+                      "Degree in Agriculture", "Degree in Law",
+                      "PhD", "Others")
 # individual_adults$highest_edu <- as.factor(individual_adults$highest_edu)
 # levels(individual_adults$highest_edu) <- education_levels
 # gender_levels <- c("male", "female")
 # individual_adults$gender <- as.factor(individual_adults$gender)
 # levels(individual_adults$gender) <- gender_levels
 
-distance <- distancetobhu[, c(seq(1,5), 28)]                                                       # select distance to health facility column
-distance_factors <- c("0-14min", "15-29min", "30-44min", "45-59min", "60+min")                     # convert distance to factor variable
+distance <- distancetobhu[, c(seq(1,5), 28)]                                                       # select distance to health facility column                    # convert distance to factor variable
 # distance$sgq10_71 <- as.factor(distance$sgq10_71)
 # levels(distance$sgq10_71) <- distance_factors
 colnames(distance)[6] <- "distance_to_healthfacility"
@@ -130,3 +129,20 @@ rm(frame)
 rm(proportion_of_children_immunised)
 
 regionaldata <- data.frame(districtcode_vector, median_distance, median_education, mean_age, female_edu, immunised_proportion)
+regionaldata <- mutate(regionaldata, age_squared = (mean_age)**2)
+
+education_levels <- c("Below Class-I", "class I","Class II", "Class III",
+                      "Class IV",
+                      "Class V", "Class VI", "Class VII", "Class VIII",
+                      "Class IX", "Class X", "Polytechnic Diploma",
+                      "F.A/F.Sci/I.com", "Bachelors", "Masters",
+                      "Degree in Engineering", "Degree in Medicine",
+                      "Degree in Agriculture", "Degree in Law",
+                      "PhD", "Others")
+regionaldata$median_education <- as.factor(as.integer(regionaldata$median_education))
+levels(regionaldata$median_education) <- education_levels
+
+distance_factors <- c("0-14min", "15-29min", "30-44min", "45-59min", "60+min") 
+regionaldata$median_distance <- as.factor(as.integer(regionaldata$median_distance))
+levels(regionaldata$median_distance) <- distance_factors
+regression_report <- summary(lm(immunised_proportion ~ female_edu + mean_age + age_squared + median_education + median_distance, regionaldata))
