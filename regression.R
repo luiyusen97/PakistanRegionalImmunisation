@@ -150,8 +150,9 @@ print(regression_report)
 
 # need to run the heteroscedascity tests
 regionaldata <- mutate(regionaldata, residuals_squared = (regression_report$residuals)**2)
-white_test <- summary(lm(residuals_squared~female_edu + mean_age + age_squared + median_education + median_distance, regionaldata))
-print(white_test)
+breuschpagan_test <- summary(lm(residuals_squared~female_edu + mean_age + age_squared + median_education + median_distance, regionaldata))
+print(breuschpagan_test)
+# Reject for 0.01 significance level. Accept for 0.05 significance level
 
 # shapiro-wilks test for normality of residuals
 print(shapiro.test(regression_report$residuals))
