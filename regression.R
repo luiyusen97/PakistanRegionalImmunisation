@@ -1,5 +1,7 @@
 library(tidyverse)
 library(haven)
+library(lmtest)
+library(sandwich)
 
 # read the data and rename the datasets
 personaldetails <- read_dta(file = "C:\\Users\\Lui Yu Sen\\Documents\\Github projects\\PakistanRegionalImmunisation\\Datasets\\Data in stata\\plist.dta")
@@ -148,11 +150,16 @@ levels(regionaldata$median_distance) <- distance_factors
 regression_report <- summary(lm(immunised_proportion ~ female_edu + mean_age + age_squared + median_education + median_distance, regionaldata))
 print(regression_report)
 
+# if using robust se
+# robust_t <- coeftest(regression_report, vcov = vcovHC(regression_report, type = "HC0"))
+# print(robust_t)
+
 # need to run the heteroscedascity tests
 regionaldata <- mutate(regionaldata, residuals_squared = (regression_report$residuals)**2)
-breuschpagan_test <- summary(lm(residuals_squared~female_edu + mean_age + age_squared + median_education + median_distance, regionaldata))
-print(breuschpagan_test)
+ramsey_test <- summary(lm(residuals_squared~female_edu + mean_age + age_squared + median_education + median_distance, regionaldata))
+print(ramsey_test)
 # Reject for 0.01 significance level. Accept for 0.05 significance level
+# set to 0.01, accept H_0: MLR5 holds
 
 # shapiro-wilks test for normality of residuals
 print(shapiro.test(regression_report$residuals))
