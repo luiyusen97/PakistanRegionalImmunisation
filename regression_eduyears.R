@@ -63,6 +63,11 @@ individual_adults <- mutate(individual_adults,
 districtcode_vector <- unique(individual_adults$districtcode)
 individual_adults$districtcode <- as.factor(individual_adults$districtcode)
 individual_adults$highest_edu <- as.numeric(individual_adults$highest_edu)
+for (n in seq(1, nrow(individual_adults))){
+    if (individual_adults[n, "highest_edu"]==11){
+        individual_adults[n, "highest_edu"]==13
+    } else if (individual_adults[n, "highest_edu"]==12)
+}
 individual_adults <- split(individual_adults, individual_adults$districtcode)
 median_education <- c()
 mean_age <- c()
