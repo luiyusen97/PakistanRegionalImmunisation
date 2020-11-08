@@ -2,15 +2,24 @@ library(tidyverse)
 library(haven)
 library(lmtest)
 library(sandwich)
-
-# I'm going to try to do this with years of education instead of categories of education
+library(broom)
 
 # read the data and rename the datasets
 personaldetails <- read_dta(file = "C:\\Users\\Lui Yu Sen\\Documents\\Github projects\\PakistanRegionalImmunisation\\Datasets\\Data in stata\\plist.dta")
 education <-read_dta(file = "C:\\Users\\Lui Yu Sen\\Documents\\Github projects\\PakistanRegionalImmunisation\\Datasets\\Data in stata\\sec_c.dta")
-income <-read_dta(file = "C:\\Users\\Lui Yu Sen\\Documents\\Github projects\\PakistanRegionalImmunisation\\Datasets\\Data in stata\\sec_e.dta")
 distancetobhu <-read_dta(file = "C:\\Users\\Lui Yu Sen\\Documents\\Github projects\\PakistanRegionalImmunisation\\Datasets\\Data in stata\\sec_g.dta")
 immunisation <-read_dta(file = "C:\\Users\\Lui Yu Sen\\Documents\\Github projects\\PakistanRegionalImmunisation\\Datasets\\Data in stata\\sec_h.dta")
+
+income <-read_dta(file = "C:\\Users\\Lui Yu Sen\\Documents\\Github projects\\PakistanRegionalImmunisation\\Datasets\\Data in stata\\sec_e.dta")
+full_filepaths <- c("C:\\Users\\Lui Yu Sen\\Documents\\Github projects\\PakistanRegionalImmunisation\\Datasets\\Data in stata\\sec_a.dta",
+                    "C:\\Users\\Lui Yu Sen\\Documents\\Github projects\\PakistanRegionalImmunisation\\Datasets\\Data in stata\\sec_b.dta",
+                    "C:\\Users\\Lui Yu Sen\\Documents\\Github projects\\PakistanRegionalImmunisation\\Datasets\\Data in stata\\sec_d.dta",
+                    "C:\\Users\\Lui Yu Sen\\Documents\\Github projects\\PakistanRegionalImmunisation\\Datasets\\Data in stata\\sec_f1.dta",
+                    "C:\\Users\\Lui Yu Sen\\Documents\\Github projects\\PakistanRegionalImmunisation\\Datasets\\Data in stata\\sec_f2.dta",
+                    "C:\\Users\\Lui Yu Sen\\Documents\\Github projects\\PakistanRegionalImmunisation\\Datasets\\Data in stata\\sec_i.dta",
+                    "C:\\Users\\Lui Yu Sen\\Documents\\Github projects\\PakistanRegionalImmunisation\\Datasets\\Data in stata\\sec_j.dta")
+listdata <- lapply(full_filepaths, read_dta)
+bhu_usedata <- listdata[[7]][, seq(1, 10)]
 # columns that are needed, name (column name):
 # personaldetails: gender (sbq04), age (age)
 # income: screw income, I have no idea how to clean this shit
@@ -58,16 +67,11 @@ colnames(individual_adults) <- c(
 individual_adults <- mutate(individual_adults,
                             districtcode = as.numeric(str_sub(as.character(complete_identcode),
                                                               1, 4)
-                            )
-)                                                                      # extract district code from complete ident code
+                                                      )
+                            )                                                                      # extract district code from complete ident code
 districtcode_vector <- unique(individual_adults$districtcode)
 individual_adults$districtcode <- as.factor(individual_adults$districtcode)
 individual_adults$highest_edu <- as.numeric(individual_adults$highest_edu)
-for (n in seq(1, nrow(individual_adults))){
-    if (individual_adults[n, "highest_edu"]==11){
-        individual_adults[n, "highest_edu"]==13
-    } else if (individual_adults[n, "highest_edu"]==12)
-}
 individual_adults <- split(individual_adults, individual_adults$districtcode)
 median_education <- c()
 mean_age <- c()
@@ -137,37 +141,105 @@ for (frame in immunisation){
 rm(frame)
 rm(proportion_of_children_immunised)
 
+# getting use frequency of basic health unit
+bhu_usedata <- mutate(bhu_usedata, districtcode = as.numeric(str_sub(as.character(hhcode), 1, 4)))
+bhu_usedata <- mutate(bhu_usedata, bhu_visitation = case_when(
+    sjq01a == 1 ~ 0,
+    TRUE ~ 1
+))
+bhu_visitation_proportion <- c()
+bhu_usedata <- split(bhu_usedata, bhu_usedata$districtcode)
+bhu_visitation_proportion <- c()
+for (frame in bhu_usedata){
+    proportion_visitingbhu <- mean(frame[, "bhu_visitation", drop = T])
+    bhu_visitation_proportion <- c(bhu_visitation_proportion, proportion_visitingbhu)
+}
+
+# getting income data
+income <- mutate(income, districtcode = as.numeric(str_sub(as.character(hhcode), 1, 4)))
+income <- mutate(income, identificationcode = hhcode*10+idc)
+income <- mutate(income, earnedcash_income = case_when(
+    seq07 == 1 ~ seq08*seq09,
+    seq08 == 2 ~ seq10,
+    TRUE ~ 0
+))
+income <- mutate(income, secondoccupation_income = case_when(
+    seq11 == 1 ~ seq15,
+    TRUE ~ 0
+))
+income <- mutate(income, incomeinkind = case_when(
+    seq18 == 1 ~ seq19,
+    TRUE ~ 0
+))
+income <- mutate(income, additional_benefits = case_when(
+    seq20 == 1 ~ seq21,
+    TRUE ~ 0
+))
+income[is.na(income$seq23), "seq23"] <- 0
+income[is.na(income$seq24), "seq24"] <- 0
+income[is.na(income$seq25), "seq25"] <- 0
+income[is.na(income$seq26), "seq26"] <- 0
+income <- mutate(income, annualincome = 
+    earnedcash_income + secondoccupation_income + incomeinkind +
+      additional_benefits + seq23 + seq24 + seq25 + seq26
+)
+income <- drop_na(income, annualincome)
+income <- split(income, income$districtcode)
+mean_income_district <- c()
+for (frame in income){
+    mean_Y <- mean(frame[, "annualincome", drop = T])
+    mean_income_district <- c(mean_income_district, mean_Y)
+}
+
 regionaldata <- data.frame(districtcode_vector, median_distance, median_education, mean_age, female_edu, immunised_proportion)
 regionaldata <- mutate(regionaldata, age_squared = (mean_age)**2)
 
-education_levels <- c("Below Class-I", "class I","Class II", "Class III",
-                      "Class IV",
-                      "Class V", "Class VI", "Class VII", "Class VIII",
-                      "Class IX", "Class X", "Polytechnic Diploma",
-                      "F.A/F.Sci/I.com", "Bachelors", "Masters",
-                      "Degree in Engineering", "Degree in Medicine",
-                      "Degree in Agriculture", "Degree in Law",
-                      "PhD", "Others")
-regionaldata$median_education <- as.factor(as.integer(regionaldata$median_education))
-levels(regionaldata$median_education) <- education_levels
+# education_levels <- c("Below Class-I", "class I","Class II", "Class III",
+#                       "Class IV",
+#                       "Class V", "Class VI", "Class VII", "Class VIII",
+#                       "Class IX", "Class X", "Polytechnic Diploma",
+#                       "F.A/F.Sci/I.com", "Bachelors", "Masters",
+#                       "Degree in Engineering", "Degree in Medicine",
+#                       "Degree in Agriculture", "Degree in Law",
+#                       "PhD", "Others")
+# regionaldata$median_education <- as.factor(as.integer(regionaldata$median_education))
+# levels(regionaldata$median_education) <- education_levels
 
 distance_factors <- c("0-14min", "15-29min", "30-44min", "45-59min", "60+min") 
 regionaldata$median_distance <- as.factor(as.integer(regionaldata$median_distance))
 levels(regionaldata$median_distance) <- distance_factors
-regression_report <- summary(lm(immunised_proportion ~ female_edu + mean_age + age_squared + median_education + median_distance, regionaldata))
-print(regression_report)
-
-# if using robust se
-# robust_t <- coeftest(regression_report, vcov = vcovHC(regression_report, type = "HC0"))
-# print(robust_t)
+regionaldata <- mutate(regionaldata, median_education_squared = median_education**2)
+regionaldata <- cbind(regionaldata, mean_income_district)
+regionaldata <- cbind(regionaldata, bhu_visitation_proportion)
+regression_report <- lm(immunised_proportion ~ female_edu + mean_age + age_squared + median_education + median_education_squared + median_distance + mean_income_district + bhu_visitation_proportion, regionaldata)
+print(summary(regression_report))
 
 # need to run the heteroscedascity tests
 regionaldata <- mutate(regionaldata, residuals_squared = (regression_report$residuals)**2)
-ramsey_test <- summary(lm(residuals_squared~female_edu + mean_age + age_squared + median_education + median_distance, regionaldata))
+ramsey_test <- summary(lm(residuals_squared~female_edu + mean_age + age_squared + median_education + median_education_squared + median_distance + mean_income_district + bhu_visitation_proportion, regionaldata))
 print(ramsey_test)
 # Reject for 0.01 significance level. Accept for 0.05 significance level
 # set to 0.01, accept H_0: MLR5 holds
 
 # shapiro-wilks test for normality of residuals
 print(shapiro.test(regression_report$residuals))
-# it's not normal shit
+# it's not normal oh no
+
+# if using robust se (n>120)
+robust_t <- coeftest(regression_report, vcov = vcovHC(regression_report, type = "HC0"))
+print(robust_t)
+robust_F <- waldtest(regression_report, vcov = vcovHC(regression_report, type = "HC0"))
+summary(robust_F)
+# stat significant: female_edu, medianII-VII
+# stat insignificant: everything else
+# F-test passed
+# 
+# write everything to a file
+# first, compile into a single dataframe
+report_output <- tidy(robust_t)
+report_output <- mutate(report_output, summary(regression_report)$coefficients[,4])               # grabbing p-values with regular standard errors
+report_output <- mutate(report_output, multiplier = c(1, 0.1,1,1,1,0.001,0.001,0.001,0.001,0.001,0.001,1,1,1,1,1,1))
+colnames(report_output) <- c("Term", "Slope Estimate", "Robust se", "Robust t-statistic", "Robust p-value", "p-value", "multiplier")
+report_output <- mutate(report_output, `Robust p-value` = `Robust p-value`*multiplier, `p-value` = `p-value`*multiplier) # applying multipliers from regression report
+report_output <- report_output[,-ncol(report_output)]
+write.csv(report_output, file = "C:\\Users\\Lui Yu Sen\\Documents\\Github projects\\PakistanRegionalImmunisation\\report_output.csv")
