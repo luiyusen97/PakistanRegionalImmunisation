@@ -238,8 +238,8 @@ summary(robust_F)
 # first, compile into a single dataframe
 report_output <- tidy(robust_t)
 report_output <- mutate(report_output, summary(regression_report)$coefficients[,4])               # grabbing p-values with regular standard errors
-report_output <- mutate(report_output, multiplier = c(1, 0.1,1,1,1,0.001,0.001,0.001,0.001,0.001,0.001,1,1,1,1,1,1))
+report_output <- mutate(report_output, multiplier = c(1,0.1,1,1,1,1,1,1,1,1,0.1,1))
 colnames(report_output) <- c("Term", "Slope Estimate", "Robust se", "Robust t-statistic", "Robust p-value", "p-value", "multiplier")
 report_output <- mutate(report_output, `Robust p-value` = `Robust p-value`*multiplier, `p-value` = `p-value`*multiplier) # applying multipliers from regression report
 report_output <- report_output[,-ncol(report_output)]
-write.csv(report_output, file = "C:\\Users\\Lui Yu Sen\\Documents\\Github projects\\PakistanRegionalImmunisation\\report_output.csv")
+write.csv(report_output, file = "C:\\Users\\Lui Yu Sen\\Documents\\Github projects\\PakistanRegionalImmunisation\\report_output_eduyears.csv")
