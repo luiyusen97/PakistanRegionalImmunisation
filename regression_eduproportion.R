@@ -77,46 +77,35 @@ overall_education <- c()
 mean_age <- c()
 female_edu <- c()
 for (frame in individual_adults){
-  # get at least primary educated people, so at least 8 years of education
-    median_education_category <- nrow(frame[(frame$highest_edu>=8),])
+    median_education_category <- nrow(frame[(frame$highest_edu>=8),])/nrow(frame)
     overall_education <- c(overall_education, median_education_category)
     mean_age_datum <- mean(frame$age)
     mean_age <- c(mean_age, mean_age_datum)
+    female_no <- nrow(frame[frame$gender == 2,])
     female_no_primaryedu <- nrow(frame[(frame$gender==2)&(frame$highest_edu>=8),])
-    female_edu_region <- female_no_primaryedu
+    female_edu_region <- female_no_primaryedu/female_no
     female_edu <- c(female_edu, female_edu_region)
 }
 rm(frame)
 rm(median_education_category)
 rm(mean_age_datum)
+rm(female_no)
 rm(female_no_primaryedu)
 rm(female_edu_region)
 # individual_adults <- group_by(individual_adults, districtcode)
-# education_levels <- c("Below Class-I", "class I","Class II", "Class III",
-#                       "Class IV",
-#                       "Class V", "Class VI", "Class VII", "Class VIII",
-#                       "Class IX", "Class X", "Polytechnic Diploma",
-#                       "F.A/F.Sci/I.com", "Bachelors", "Masters",
-#                       "Degree in Engineering", "Degree in Medicine",
-#                       "Degree in Agriculture", "Degree in Law",
-#                       "PhD", "Others")
+education_levels <- c("Below Class-I", "class I","Class II", "Class III",
+                      "Class IV",
+                      "Class V", "Class VI", "Class VII", "Class VIII",
+                      "Class IX", "Class X", "Polytechnic Diploma",
+                      "F.A/F.Sci/I.com", "Bachelors", "Masters",
+                      "Degree in Engineering", "Degree in Medicine",
+                      "Degree in Agriculture", "Degree in Law",
+                      "PhD", "Others")
 # individual_adults$highest_edu <- as.factor(individual_adults$highest_edu)
 # levels(individual_adults$highest_edu) <- education_levels
 # gender_levels <- c("male", "female")
 # individual_adults$gender <- as.factor(individual_adults$gender)
 # levels(individual_adults$gender) <- gender_levels
-
-# get sample size
-household_perdistrict <- personaldetails
-household_perdistrict <- mutate(household_perdistrict, districtcode = as.numeric(str_sub(as.character(hhcode), 1, 4)))
-household_perdistrict <- household_perdistrict[, -seq(2, 10)]
-household_perdistrict <- unique(household_perdistrict)
-household_perdistrict <- split(household_perdistrict, household_perdistrict$districtcode)
-household_samplesize <- c()
-for (frame in household_perdistrict){
-  household_samplesize <- c(household_samplesize, nrow(frame))
-}
-
 
 distance <- distancetobhu[, c(seq(1,5), 28)]                                                       # select distance to health facility column                    # convert distance to factor variable
 # distance$sgq10_71 <- as.factor(distance$sgq10_71)
@@ -144,15 +133,15 @@ immunisation <- mutate(immunisation, full_immunisation = (((shq6a==3)|(shq6a==2)
 immunisation <- mutate(immunisation, districtcode = as.numeric(str_sub(as.character(hhcode), 1, 4)))
 immunisation$districtcode <- as.factor(immunisation$districtcode)
 immunisation <- split(immunisation, immunisation$districtcode)
-immunised_children <- c()
-household_samplesize <- c()
+immunised_proportion <- c()
+children_sample_size <- c()
 for (frame in immunisation){
-    number_Of_immunised_children <- (nrow(frame)-sum(frame$full_immunisation))                 # minus away those who did not fully immunise
-    immunised_children <- c(immunised_children, number_Of_immunised_children)
-    household_samplesize <- c(household_samplesize, nrow(frame))
+    proportion_of_children_immunised <- (nrow(frame)-sum(frame$full_immunisation))
+    immunised_proportion <- c(immunised_proportion, proportion_of_children_immunised)
+    children_sample_size <- c(children_sample_size, nrow(frame))
 }
 rm(frame)
-rm(number_Of_immunised_children)
+rm(proportion_of_children_immunised)
 
 # getting use frequency of basic health unit
 bhu_usedata <- mutate(bhu_usedata, districtcode = as.numeric(str_sub(as.character(hhcode), 1, 4)))
@@ -204,7 +193,7 @@ for (frame in income){
     mean_income_district <- c(mean_income_district, mean_Y)
 }
 
-regionaldata <- data.frame(districtcode_vector, median_distance, overall_education, mean_age, female_edu, immunised_children)
+regionaldata <- data.frame(districtcode_vector, median_distance, overall_education, mean_age, female_edu, immunised_proportion)
 regionaldata <- mutate(regionaldata, age_squared = (mean_age)**2)
 
 # education_levels <- c("Below Class-I", "class I","Class II", "Class III",
@@ -223,26 +212,16 @@ regionaldata$median_distance <- as.factor(as.integer(regionaldata$median_distanc
 levels(regionaldata$median_distance) <- distance_factors
 regionaldata <- cbind(regionaldata, mean_income_district)
 regionaldata <- cbind(regionaldata, bhu_visitation_proportion)
-regionaldata <- cbind(regionaldata, household_samplesize)
-regression_report <- lm(immunised_children ~ household_samplesize + female_edu + mean_age + age_squared + overall_education + median_distance + mean_income_district + bhu_visitation_proportion, regionaldata)
+regionaldata <- cbind(regionaldata, children_sample_size)
+regression_report <- lm(immunised_proportion ~ children_sample_size + female_edu + mean_age + age_squared + overall_education + median_distance + mean_income_district + bhu_visitation_proportion, regionaldata)
 print(summary(regression_report))
-
-# anova F-test for all variables except sample size
-wald_test <- waldtest(lm(immunised_children ~ household_samplesize, regionaldata), regression_report, vcov=vcovHC(regression_report, type = "HC0"))
-print(wald_test)
-# passed, means can reject joint insignificance for explanatory variables besides sample size
 
 # need to run the heteroscedascity tests
 regionaldata <- mutate(regionaldata, residuals_squared = (regression_report$residuals)**2)
-white_test <- summary(lm(residuals_squared ~ household_samplesize + female_edu + mean_age + age_squared + overall_education + median_distance + mean_income_district + bhu_visitation_proportion, regionaldata))
-print(white_test)
+ramsey_test <- summary(lm(residuals_squared ~ children_sample_size + female_edu + mean_age + age_squared + overall_education + median_distance + mean_income_district + bhu_visitation_proportion, regionaldata))
+print(ramsey_test)
 # Reject for 0.01 significance level. Accept for 0.05 significance level
 # set to 0.01, accept H_0: MLR5 holds
-# 
-# heteroscedascity test for everything except sample size
-white_test_restricted <- lm(residuals_squared ~ female_edu + mean_age + age_squared + overall_education + median_distance + mean_income_district + bhu_visitation_proportion, regionaldata)
-summary(white_test_restricted)
-# pass, no heteroscedascity
 
 # shapiro-wilks test for normality of residuals
 print(shapiro.test(regression_report$residuals))
@@ -261,19 +240,9 @@ robust_F
 # first, compile into a single dataframe
 report_output <- tidy(robust_t)
 report_output <- mutate(report_output, summary(regression_report)$coefficients[,4])               # grabbing p-values with regular standard errors
-colnames(report_output) <- c("Term", "Slope Estimate", "Robust se", "Robust t-statistic", "Robust p-value", "p-value")
+report_output <- mutate(report_output, multiplier = c(0.1,0.0001,0.1,1,1,1,1,1,1,1,1,1))
+colnames(report_output) <- c("Term", "Slope Estimate", "Robust se", "Robust t-statistic", "Robust p-value", "p-value", "multiplier")
+report_output <- mutate(report_output, `Robust p-value` = `Robust p-value`*multiplier, `p-value` = `p-value`*multiplier) # applying multipliers from regression report
+report_output <- report_output[,-ncol(report_output)]
 report_output <- mutate(report_output, se = tidy(regression_report)$std.error)
-report_output <- mutate(report_output, `t-statistic` = tidy(regression_report)$statistic)
-report_output <- report_output[, c(1, 2, 8, 7, 6, 3, 4, 5)]
-report_output <- mutate(report_output, `t-test` = case_when(`Robust p-value` < 0.05 ~ "Rejected",
-                                                            `Robust p-value` >=0.05 ~ "Not rejected"))
-write.csv(report_output, file = "C:\\Users\\Lui Yu Sen\\Documents\\Github projects\\PakistanRegionalImmunisation\\report_output_bydistrict.csv")
-
-# more stuff in paper
-# mean and regional variance of immunisation rates
-mean_proportion_immunised <- c()
-for (frame in immunisation){
-  mean_proportion_immunised <- c(mean_proportion_immunised, (nrow(frame)-sum(frame$full_immunisation))/nrow(frame))
-}
-variance_proportion_immunised <- var(mean_proportion_immunised)
-mean_proportion_immunised <- mean(mean_proportion_immunised)
+write.csv(report_output, file = "C:\\Users\\Lui Yu Sen\\Documents\\Github projects\\PakistanRegionalImmunisation\\report_output_eduproportion.csv")
